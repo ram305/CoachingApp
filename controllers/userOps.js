@@ -1,6 +1,7 @@
 const { Students } = require('../models/users');
 const { Teachers } = require('../models/users');
 const bcrypt = require('bcrypt');
+const joi = require("@hapi/joi");
 const jswt = require('jsonwebtoken');
 
 
@@ -21,27 +22,41 @@ signupFunction = (user) => {
 };
 
 exports.signUp = (req, res) => {
-    bcrypt.hash(req.body.password, 10).then(
-        (hashPass) => {
-            if (req.body.userType === 'STUDENT') {
-                const student = new Students({
-                    email: req.body.email,
-                    password: hashPass,
-                    firstName: req.body.firstName,
-                    lastName: req.body.lastName,
-                });
-                signupFunction(student);
-            } else {
-                const teacher = new Teachers({
-                    email: req.body.email,
-                    password: hashPass,
-                    firstName: req.body.firstName,
-                    lastName: req.body.lastName,
-                });
-                signupFunction(teacher);
-            }
+    try {
+        const schema = joi.object().keys({
+            firstName: joi.string().min(3).max(45).required(),
+            lastName: joi.string().min(1).max(45).required(),
+            email: joi.string().email().required(),
+            password: joi.string().min(6).max(20).required(),
+        });
+        const result = schema.validate(req.body);
+        if (result.error) {
+            throw result.error.details[0].message;
         }
-    )
+        bcrypt.hash(req.body.password, 10).then(
+            (hashPass) => {
+                if (req.body.userType === 'STUDENT') {
+                    const student = new Students({
+                        email: req.body.email,
+                        password: hashPass,
+                        firstName: req.body.firstName,
+                        lastName: req.body.lastName,
+                    });
+                    signupFunction(student);
+                } else {
+                    const teacher = new Teachers({
+                        email: req.body.email,
+                        password: hashPass,
+                        firstName: req.body.firstName,
+                        lastName: req.body.lastName,
+                    });
+                    signupFunction(teacher);
+                }
+            }
+        )
+    } catch (e) {
+        res.status(500).json({ error: e });
+    }
 };
 
 loginFunction = (table, req, res) => {
